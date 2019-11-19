@@ -1,0 +1,83 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "master-machineName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "master-machineAdminUserName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "master-machineAdminPassword": {
+      "type": "securestring"
+    },
+    "linuxOSVersion": {
+      "type": "string",
+      "defaultValue": "14.04.2-LTS",
+      "allowedValues": [
+        "12.04.5-LTS",
+        "14.04.2-LTS"
+      ]
+    },
+    "machineNicName": {
+      "type": "string"
+    },
+    "storageAccountName": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "master-machineImagePublisher": "Canonical",
+    "master-machineImageOffer": "UbuntuServer",
+    "master-machineOSDiskName": "master-machineOSDisk",
+    "master-machineVmSize": "Standard_D2_v2",
+    "master-machineStorageAccountContainerName": "vhds",
+  },
+  "resources": [
+    {
+      "name": "[parameters('master-machineName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "resourceGroup().location",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [],
+      "tags": {
+        "displayName": "master-machine"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('master-machineVmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('master-machineName')]",
+          "adminUsername": "[parameters('master-machineAdminUsername')]",
+          "adminPassword": "[parameters('master-machineAdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('master-machineImagePublisher')]",
+            "offer": "[variables('master-machineImageOffer')]",
+            "sku": "[parameters('linuxOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "master-machineOSDisk",
+            "vhd": {
+              "uri": "[concat(reference(resourceId(resourceGroup().name, 'Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2016-01-01').primaryEndpoints.blob, variables('master-machineStorageAccountContainerName'), '/', variables('master-machineOSDiskName'), '.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('machineNicName'))]"
+            }
+          ]
+        }
+      }
+    }],
+  "outputs": {}
+}

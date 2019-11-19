@@ -1,0 +1,129 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "master-machineName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "master-machineAdminUserName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "master-machineAdminPassword": {
+      "type": "securestring"
+    },
+    "linuxOSVersion": {
+      "type": "string",
+      "defaultValue": "14.04.2-LTS",
+      "allowedValues": [
+        "12.04.5-LTS",
+        "14.04.2-LTS"
+      ]
+    },
+    "machineNicName": {
+      "type": "string"
+    },
+    "storageAccountName": {
+      "type": "string"
+    },
+    "_artifactsLocation": {
+      "type": "string",
+      "metadata": {
+        "description": "Auto-generated container in staging storage account to receive post-build staging folder upload"
+      }
+    },
+    "_artifactsLocationSasToken": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Auto-generated token to access _artifactsLocation"
+      }
+    }
+  },
+  "variables": {
+    "master-machineImagePublisher": "Canonical",
+    "master-machineImageOffer": "UbuntuServer",
+    "master-machineVmSize": "Standard_D2_v2",
+    "master-machineStorageAccountContainerName": "vhds",
+    "master-osDiskName": "[concat('kg-master-machineOSDisk-', uniqueString(resourceGroup().id))]",
+    "installScriptFolder": "CustomScripts",
+    "installScriptFileName": "install-nginx.sh.sh"
+  },
+  "resources": [
+    {
+      "name": "[parameters('master-machineName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [],
+      "tags": {
+        "displayName": "master-machine"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('master-machineVmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('master-machineName')]",
+          "adminUsername": "[parameters('master-machineAdminUsername')]",
+          "adminPassword": "[parameters('master-machineAdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('master-machineImagePublisher')]",
+            "offer": "[variables('master-machineImageOffer')]",
+            "sku": "[parameters('linuxOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "[variables('master-osDiskName')]",
+            "vhd": {
+              "uri": "[concat(reference(resourceId(resourceGroup().name, 'Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2016-01-01').primaryEndpoints.blob, variables('master-machineStorageAccountContainerName'), '/', variables('master-osDiskName'), '.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('machineNicName'))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true,
+            "storageUri": "[concat('https', '://', parameters('storageAccountName'), '.blob.core.windows.net', '/')]"
+          }
+        }
+      },
+      "resources": [
+        {
+          "name": "install-nginx.sh",
+          "type": "extensions",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "2016-03-30",
+          "dependsOn": [
+            "[resourceId(resourceGroup().name, 'Microsoft.Compute/virtualMachines', parameters('master-machineName'))]"
+          ],
+          "tags": {
+            "displayName": "install-nginx.sh"
+          },
+          "properties": {
+            "publisher": "Microsoft.OSTCExtensions",
+            "type": "CustomScriptForLinux",
+            "typeHandlerVersion": "1.4",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "fileUris": [
+                "[concat(parameters('_artifactsLocation'), '/', variables('installScriptFolder'), '/', variables('installScriptFileName'), parameters('_artifactsLocationSasToken'))]"
+              ],
+              "commandToExecute": "[concat('sh ', variables('installScriptFileName'))]"
+            }
+          }
+        }
+      ]
+    }],
+  "outputs": {}
+}

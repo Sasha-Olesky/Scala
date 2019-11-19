@@ -1,0 +1,394 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "_artifactsLocation": {
+      "type": "string"
+    },
+    "_artifactsLocationSasToken": {
+      "type": "securestring"
+    },
+    "publicIpDnsName": {
+      "type": "string",
+      "metadata": {
+        "description": "Globally unique DNS Name for the Public IP."
+      },
+      "defaultValue": "kogencepublicip2018"
+    },
+    "adminUsername": {
+      "type": "string",
+      "minLength": 1,
+      "defaultValue": "ubuntu",
+      "metadata": {
+        "description": "User name for the Virtual Machine."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "defaultValue": "ubuntuTest123!",
+      "metadata": {
+        "description": "Password for the Virtual Machine."
+      }
+    }
+  },
+  "variables": {
+    "nest-folder": "nestedtemplates",
+    "nest-vnetTemplateFileName": "nest-vnet.json",
+    "nest-net-interfaceTemplateFileName": "nest-net-interface.json",
+    "nest-public-ipTemplateFileName": "nest-public-ip.json",
+    "nest-storage-accountTemplateFileName": "nest-storage-account.json",
+    "nest-master-vmTemplateFileName": "nest-master-vm.json",
+    "nest-queue-serviceTemplateFileName": "nest-queue-service.json",
+    "nest-event-gridTemplateFileName": "nest-event-grid.json",
+    "nest-cosmosdbTemplateFileName": "nest-cosmosdb.json",
+    "nest-networksecurityTemplateFileName": "nest-net-security.json",
+    "nest-loadbalancerTemplateFileName": "nest-loadbalancer.json",
+    "nest-scalesetsTemplateFileName": "nest-scalesets.json",
+
+    "virtualNetworkName": "kg-mainVNET",
+    "masterSubnetName": "kg-master-Subnet",
+    "computeSubnetName": "kg-compute-Subnet",
+    "master-machineName": "kg-master-virtual-machine",
+    "masterSecurityGroup": "kg-mainVMNic-Security",
+    "loadBalancerName": "kg-mainVNET-loadbalancer",
+    "networkInterfaceName": "kg-mainVMNic",
+    "serviceBusNamespaceName": "kg-servicebus-space",
+    "serviceBusQueueName": "kg-servicebus-queue",
+    "eventGridTopicName": "kg-event-grid",
+    "eventGridSubscriptionName": "kg-even-grid-name",
+    "databaseAccountName": "kg-database-account-name",
+    "eventGridSubscriptionUrl": "https://kogence.io/gidsubscription",
+    "publicIpName": "kg-public-ip",
+
+    "virtualNetworkAddressRange": "10.0.0.0/16",
+    "masterSubnetAddressPrefix": "10.0.0.0/24",
+    "computeSubnetAddressPrefix": "10.0.1.0/24",
+    "vhdStorageType": "Standard_LRS",
+    "linuxOSVersion": "14.04.2-LTS",
+    "databaseApiType": "MongoDB"
+  },
+  "resources": [
+    {
+      "name": "nest-net-security",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nest-folder'), '/', variables('nest-networksecurityTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "masterSecurityGroup": {
+            "value": "[variables('masterSecurityGroup')]"
+          }
+        }
+      }
+    },
+    {
+      "name": "nest-vnet",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/nest-net-security"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nest-folder'), '/', variables('nest-vnetTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "virtualNetworkName": {
+            "value": "[variables('virtualNetworkName')]"
+          },
+          "virtualNetworkAddressRange": {
+            "value": "[variables('virtualNetworkAddressRange')]"
+          },
+          "subnetName1": {
+            "value": "[variables('masterSubnetName')]"
+          },
+          "subnetRange1": {
+            "value": "[variables('masterSubnetAddressPrefix')]"
+          },
+          "subnetName2": {
+            "value": "[variables('computeSubnetName')]"
+          },
+          "subnetRange2": {
+            "value": "[variables('computeSubnetAddressPrefix')]"
+          },
+          "masterSecurityGroup": {
+            "value": "[variables('masterSecurityGroup')]"
+          }
+        }
+      }
+    },
+    {
+      "name": "nest-public-ip",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nest-folder'), '/', variables('nest-public-ipTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "publicIpDnsName": {
+            "value": "[parameters('publicIpDnsName')]"
+          },
+          "publicIpName": {
+            "value": "[variables('publicIpName')]"
+          }
+        }
+      }
+    },
+    {
+      "name": "nest-loadbalancer",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/nest-public-ip"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nest-folder'), '/', variables('nest-loadbalancerTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "loadBalancerName": {
+            "value": "[variables('loadBalancerName')]"
+          },
+          "publicIpName": {
+            "value": "[variables('publicIpName')]"
+          }
+        }
+      }
+    },
+    {
+      "name": "nest-storage-account",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nest-folder'), '/', variables('nest-storage-accountTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "vhdStorageType": {
+            "value": "[variables('vhdStorageType')]"
+          }
+        }
+      }
+    },
+    {
+      "name": "nest-net-interface",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/nest-vnet",
+        "Microsoft.Resources/deployments/nest-loadbalancer"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nest-folder'), '/', variables('nest-net-interfaceTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "network-interfaceName": {
+            "value": "[variables('networkInterfaceName')]"
+          },
+          "virtualNetworkName": {
+            "value": "[variables('virtualNetworkName')]"
+          },
+          "virtualNetworkSubnetName": {
+            "value": "[variables('masterSubnetName')]"
+          },
+          "loadBalancerName": {
+            "value": "[variables('loadBalancerName')]"
+          }
+        }
+      }
+    },
+    /*{ // You can use virtualmachine for testing shell script and infra.
+      "name": "nest-master-vm",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/nest-net-interface"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nest-folder'), '/', variables('nest-master-vmTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "master-machineName": {
+            "value": "[variables('master-machineName')]"
+          },
+          "master-machineAdminUserName": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "master-machineAdminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "linuxOSVersion": {
+            "value": "[variables('linuxOSVersion')]"
+          },
+          "storageAccountName": {
+            "value": "[concat('kgvhd', uniqueString(resourceGroup().id))]"
+          },
+          "machineNicName": {
+            "value": "[variables('networkInterfaceName')]"
+          },
+          "_artifactsLocation": {
+            "value": "[parameters('_artifactsLocation')]"
+          },
+          "_artifactsLocationSasToken": {
+            "value": "[parameters('_artifactsLocationSasToken')]"
+          }
+        }
+      }
+    }, */
+    /*{ //need to test after enable Microsoft.DocumentDB, Microsoft.ServiceBus, Microsoft.EventGrid
+      "name": "nest-queue-service",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nest-folder'), '/', variables('nest-queue-serviceTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "serviceBusNamespaceName": {
+            "value": "[concat(variables('serviceBusNamespaceName'), '-', uniquestring(resourceGroup().id))]"
+          },
+          "serviceBusQueueName": {
+            "value": "[concat(variables('serviceBusQueueName'), '-', uniquestring(resourceGroup().id))]"
+          }
+        }
+      }
+    },
+    {
+      "name": "nest-event-grid",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nest-folder'), '/', variables('nest-event-gridTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "eventGridTopicName": {
+            "value": "[variables('eventGridTopicName')]"
+          },
+          "eventGridSubscriptionName": {
+            "value": "[variables('eventGridSubscriptionName')]"
+          },
+          "eventGridSubscriptionUrl": {
+            "value": "[variables('eventGridSubscriptionUrl')]"
+          }
+        }
+      }
+    },
+    {
+      "name": "nest-cosmosdb",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nest-folder'), '/', variables('nest-cosmosdbTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "databaseAccountName": {
+            "value": "[variables('databaseAccountName')]"
+          },
+          "apiType": {
+            "value": "[variables('databaseApiType')]"
+          }
+        }
+      }
+    },*/
+    {
+      "name": "nest-scalesets",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2016-09-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/nest-storage-account",
+        "Microsoft.Resources/deployments/nest-loadbalancer",
+        "Microsoft.Resources/deployments/nest-net-interface"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nest-folder'), '/', variables('nest-scalesetsTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "master-machineAdminUserName": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "master-machineAdminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "linuxOSVersion": {
+            "value": "[variables('linuxOSVersion')]"
+          },
+          "loadBalancerName": {
+            "value": "[variables('loadBalancerName')]"
+          },
+          "virtualNetworkName": {
+            "value": "[variables('virtualNetworkName')]"
+          },
+          "machineNicName": {
+            "value": "[variables('networkInterfaceName')]"
+          },
+          "subnetName": {
+            "value": "[variables('masterSubnetName')]"
+          },
+          "storageAccountName": {
+            "value": "[concat('kgvhd', uniqueString(resourceGroup().id))]"
+          },
+          "_artifactsLocation": {
+            "value": "[parameters('_artifactsLocation')]"
+          },
+          "_artifactsLocationSasToken": {
+            "value": "[parameters('_artifactsLocationSasToken')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "public-ip": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/publicIPAddresses','nest-public-ip')]"
+    },
+    "virtual-network": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks','nest-vnet')]"
+    },
+    "network-interface": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/networkInterfaces','nest-net-interface')]"
+    },
+    "storage-account": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Storage/storageAccounts','nest-storage-account')]"
+    }
+  }
+}
